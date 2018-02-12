@@ -15,6 +15,7 @@ option(WITH_CLIENT_TESTING "Build with client tests; requires a running sshd" OF
 option(WITH_BENCHMARKS "Build benchmarks tools" OFF)
 option(WITH_EXAMPLES "Build examples" ON)
 option(WITH_NACL "Build with libnacl (curve25519)" ON)
+option(WITH_CHACHAPOLY "Build with chachapoly support" ON)
 option(FUZZ_TESTING "Build with fuzzer for the server" OFF)
 if (WITH_ZLIB)
     set(WITH_LIBZ ON)
