@@ -108,8 +108,8 @@
 static const char *default_methods[] = {
   KEY_EXCHANGE,
   HOSTKEYS,
-  AES CHACHAPOLY BLOWFISH DES,
-  AES CHACHAPOLY BLOWFISH DES,
+  CHACHAPOLY AES BLOWFISH DES,
+  CHACHAPOLY AES BLOWFISH DES,
   "hmac-sha2-256,hmac-sha2-512,hmac-sha1",
   "hmac-sha2-256,hmac-sha2-512,hmac-sha1",
   "none",
@@ -123,8 +123,8 @@ static const char *default_methods[] = {
 static const char *supported_methods[] = {
   KEY_EXCHANGE,
   HOSTKEYS,
-  AES CHACHAPOLY BLOWFISH DES_SUPPORTED,
-  AES CHACHAPOLY BLOWFISH DES_SUPPORTED,
+  CHACHAPOLY AES BLOWFISH DES_SUPPORTED,
+  CHACHAPOLY AES BLOWFISH DES_SUPPORTED,
   "hmac-sha2-256,hmac-sha2-512,hmac-sha1",
   "hmac-sha2-256,hmac-sha2-512,hmac-sha1",
   ZLIB,
