@@ -264,7 +264,8 @@ static int pki_private_key_decrypt(ssh_string blob,
     cipher.decrypt(&cipher,
                    ssh_string_data(blob),
                    ssh_string_data(blob),
-                   ssh_string_len(blob));
+                   ssh_string_len(blob),
+                   0);
     ssh_cipher_clear(&cipher);
     return SSH_OK;
 }
@@ -545,7 +546,8 @@ static int pki_private_key_encrypt(ssh_buffer privkey_buffer,
     cipher.encrypt(&cipher,
                    ssh_buffer_get(privkey_buffer),
                    ssh_buffer_get(privkey_buffer),
-                   ssh_buffer_get_len(privkey_buffer));
+                   ssh_buffer_get_len(privkey_buffer),
+                   0);
     ssh_cipher_clear(&cipher);
     BURN_BUFFER(passphrase_buffer, sizeof(passphrase_buffer));
 

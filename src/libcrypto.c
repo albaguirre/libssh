@@ -472,6 +472,7 @@ static void evp_cipher_init(struct ssh_cipher_struct *cipher) {
         /* ciphers not using EVP */
     case SSH_3DES_CBC_SSH1:
     case SSH_DES_CBC_SSH1:
+    case SSH_CHACHAPOLY:
         SSH_LOG(SSH_LOG_WARNING, "This cipher should not use evp_cipher_init");
         break;
     case SSH_NO_CIPHER:
@@ -516,40 +517,46 @@ static int evp_cipher_set_decrypt_key(struct ssh_cipher_struct *cipher,
 }
 
 /* EVP wrapper function for encrypt/decrypt */
-static void evp_cipher_encrypt(struct ssh_cipher_struct *cipher,
-                        void *in,
-                        void *out,
-                        unsigned long len) {
+static int evp_cipher_encrypt(struct ssh_cipher_struct *cipher,
+                              void *in,
+                              void *out,
+                              unsigned long len,
+                              unsigned int seqnr) {
     int outlen = 0;
     int rc = 0;
+    (void)seqnr;
 
     rc = EVP_EncryptUpdate(cipher->ctx, (unsigned char *)out, &outlen, (unsigned char *)in, len);
     if (rc != 1){
         SSH_LOG(SSH_LOG_WARNING, "EVP_EncryptUpdate failed");
-        return;
+        return SSH_CRYPT_INTERNAL_ERROR;
     }
     if (outlen != (int)len){
         SSH_LOG(SSH_LOG_WARNING, "EVP_EncryptUpdate: output size %d for %zu in", outlen, len);
-        return;
+        return SSH_CRYPT_INTERNAL_ERROR;
     }
+    return SSH_CRYPT_OK;
 }
 
-static void evp_cipher_decrypt(struct ssh_cipher_struct *cipher,
-                        void *in,
-                        void *out,
-                        unsigned long len) {
+static int evp_cipher_decrypt(struct ssh_cipher_struct *cipher,
+                              void *in,
+                              void *out,
+                              unsigned long len,
+                              unsigned int seqnr) {
     int outlen = 0;
     int rc = 0;
+    (void)seqnr;
 
     rc = EVP_DecryptUpdate(cipher->ctx, (unsigned char *)out, &outlen, (unsigned char *)in, len);
     if (rc != 1){
         SSH_LOG(SSH_LOG_WARNING, "EVP_DecryptUpdate failed");
-        return;
+        return SSH_CRYPT_INTERNAL_ERROR;
     }
     if (outlen != (int)len){
         SSH_LOG(SSH_LOG_WARNING, "EVP_DecryptUpdate: output size %d for %zu in", outlen, len);
-        return;
+        return SSH_CRYPT_INTERNAL_ERROR;
     }
+    return SSH_CRYPT_OK;
 }
 
 static void evp_cipher_cleanup(struct ssh_cipher_struct *cipher) {
@@ -588,8 +595,9 @@ static int aes_ctr_set_key(struct ssh_cipher_struct *cipher, void *key,
     return SSH_OK;
 }
 
-static void aes_ctr_encrypt(struct ssh_cipher_struct *cipher, void *in, void *out,
-    unsigned long len) {
+static int aes_ctr_encrypt(struct ssh_cipher_struct *cipher, void *in, void *out,
+                           unsigned long len, unsigned int seqnr) {
+  (void)seqnr;
   unsigned char tmp_buffer[AES_BLOCK_SIZE];
   unsigned int num=0;
   /* Some things are special with ctr128 :
@@ -603,6 +611,7 @@ static void aes_ctr_encrypt(struct ssh_cipher_struct *cipher, void *in, void *ou
 #else
   AES_ctr128_encrypt(in, out, len, &cipher->aes_key->key, cipher->aes_key->IV, tmp_buffer, &num);
 #endif /* HAVE_OPENSSL_CRYPTO_CTR128_ENCRYPT */
+  return SSH_CRYPT_OK;
 }
 
 static void aes_ctr_cleanup(struct ssh_cipher_struct *cipher){
@@ -644,8 +653,9 @@ static int des3_set_key(struct ssh_cipher_struct *cipher, void *key, void *IV){
     return SSH_OK;
 }
 
-static void des3_1_encrypt(struct ssh_cipher_struct *cipher, void *in,
-    void *out, unsigned long len) {
+static int des3_1_encrypt(struct ssh_cipher_struct *cipher, void *in,
+                          void *out, unsigned long len, unsigned int seqnr) {
+  (void)seqnr;
 #ifdef DEBUG_CRYPTO
   ssh_print_hexa("Encrypt IV before", cipher->des3_key->ivs.c, 24);
 #endif
@@ -655,10 +665,12 @@ static void des3_1_encrypt(struct ssh_cipher_struct *cipher, void *in,
 #ifdef DEBUG_CRYPTO
   ssh_print_hexa("Encrypt IV after", cipher->des3_key->ivs.c, 24);
 #endif
+  return SSH_CRYPT_OK;
 }
 
-static void des3_1_decrypt(struct ssh_cipher_struct *cipher, void *in,
-    void *out, unsigned long len) {
+static int des3_1_decrypt(struct ssh_cipher_struct *cipher, void *in,
+                          void *out, unsigned long len, unsigned int seqnr) {
+  (void)seqnr;
 #ifdef DEBUG_CRYPTO
   ssh_print_hexa("Decrypt IV before", cipher->des3_key->ivs.c, 24);
 #endif
@@ -670,6 +682,7 @@ static void des3_1_decrypt(struct ssh_cipher_struct *cipher, void *in,
 #ifdef DEBUG_CRYPTO
   ssh_print_hexa("Decrypt IV after", cipher->des3_key->ivs.c, 24);
 #endif
+  return SSH_CRYPT_OK;
 }
 
 static int des1_set_key(struct ssh_cipher_struct *cipher, void *key, void *IV) {
@@ -684,14 +697,18 @@ static int des1_set_key(struct ssh_cipher_struct *cipher, void *key, void *IV) {
     return SSH_OK;
 }
 
-static void des1_1_encrypt(struct ssh_cipher_struct *cipher, void *in, void *out,
-                           unsigned long len){
+static int des1_1_encrypt(struct ssh_cipher_struct *cipher, void *in, void *out,
+                          unsigned long len, unsigned int seqnr){
+    (void)seqnr;
     DES_ncbc_encrypt(in, out, len, &cipher->des3_key->keys[0], &cipher->des3_key->ivs.v[0], 1);
+    return SSH_CRYPT_OK;
 }
 
-static void des1_1_decrypt(struct ssh_cipher_struct *cipher, void *in, void *out,
-        unsigned long len){
+static int des1_1_decrypt(struct ssh_cipher_struct *cipher, void *in, void *out,
+                          unsigned long len, unsigned int seqnr){
+    (void)seqnr;
     DES_ncbc_encrypt(in,out,len, &cipher->des3_key->keys[0], &cipher->des3_key->ivs.v[0], 0);
+    return SSH_CRYPT_OK;
 }
 
 static void des_cleanup(struct ssh_cipher_struct *cipher){
@@ -709,6 +726,7 @@ static struct ssh_cipher_struct ssh_ciphertab[] = {
     .name = "blowfish-cbc",
     .blocksize = 8,
     .ciphertype = SSH_BLOWFISH_CBC,
+    .authlen = 0,
     .keysize = 128,
     .set_encrypt_key = evp_cipher_set_encrypt_key,
     .set_decrypt_key = evp_cipher_set_decrypt_key,
@@ -726,6 +744,7 @@ static struct ssh_cipher_struct ssh_ciphertab[] = {
     .name = "aes128-ctr",
     .blocksize = 16,
     .ciphertype = SSH_AES128_CTR,
+    .authlen = 0,
     .keysize = 128,
     .set_encrypt_key = evp_cipher_set_encrypt_key,
     .set_decrypt_key = evp_cipher_set_decrypt_key,
@@ -737,6 +756,7 @@ static struct ssh_cipher_struct ssh_ciphertab[] = {
     .name = "aes192-ctr",
     .blocksize = 16,
     .ciphertype = SSH_AES192_CTR,
+    .authlen = 0,
     .keysize = 192,
     .set_encrypt_key = evp_cipher_set_encrypt_key,
     .set_decrypt_key = evp_cipher_set_decrypt_key,
@@ -748,6 +768,7 @@ static struct ssh_cipher_struct ssh_ciphertab[] = {
     .name = "aes256-ctr",
     .blocksize = 16,
     .ciphertype = SSH_AES256_CTR,
+    .authlen = 0,
     .keysize = 256,
     .set_encrypt_key = evp_cipher_set_encrypt_key,
     .set_decrypt_key = evp_cipher_set_decrypt_key,
@@ -760,6 +781,7 @@ static struct ssh_cipher_struct ssh_ciphertab[] = {
     .name = "aes128-ctr",
     .blocksize = 16,
     .ciphertype = SSH_AES128_CTR,
+    .authlen = 0,
     .keysize = 128,
     .set_encrypt_key = aes_ctr_set_key,
     .set_decrypt_key = aes_ctr_set_key,
@@ -771,6 +793,7 @@ static struct ssh_cipher_struct ssh_ciphertab[] = {
     .name = "aes192-ctr",
     .blocksize = 16,
     .ciphertype = SSH_AES192_CTR,
+    .authlen = 0,
     .keysize = 192,
     .set_encrypt_key = aes_ctr_set_key,
     .set_decrypt_key = aes_ctr_set_key,
@@ -782,6 +805,7 @@ static struct ssh_cipher_struct ssh_ciphertab[] = {
     .name = "aes256-ctr",
     .blocksize = 16,
     .ciphertype = SSH_AES256_CTR,
+    .authlen = 0,
     .keysize = 256,
     .set_encrypt_key = aes_ctr_set_key,
     .set_decrypt_key = aes_ctr_set_key,
@@ -795,6 +819,7 @@ static struct ssh_cipher_struct ssh_ciphertab[] = {
     .name = "aes128-cbc",
     .blocksize = 16,
     .ciphertype = SSH_AES128_CBC,
+    .authlen = 0,
     .keysize = 128,
     .set_encrypt_key = evp_cipher_set_encrypt_key,
     .set_decrypt_key = evp_cipher_set_decrypt_key,
@@ -806,6 +831,7 @@ static struct ssh_cipher_struct ssh_ciphertab[] = {
     .name = "aes192-cbc",
     .blocksize = 16,
     .ciphertype = SSH_AES192_CBC,
+    .authlen = 0,
     .keysize = 192,
     .set_encrypt_key = evp_cipher_set_encrypt_key,
     .set_decrypt_key = evp_cipher_set_decrypt_key,
@@ -817,6 +843,7 @@ static struct ssh_cipher_struct ssh_ciphertab[] = {
     .name = "aes256-cbc",
     .blocksize = 16,
     .ciphertype = SSH_AES256_CBC,
+    .authlen = 0,
     .keysize = 256,
     .set_encrypt_key = evp_cipher_set_encrypt_key,
     .set_decrypt_key = evp_cipher_set_decrypt_key,
@@ -830,6 +857,7 @@ static struct ssh_cipher_struct ssh_ciphertab[] = {
     .name = "3des-cbc",
     .blocksize = 8,
     .ciphertype = SSH_3DES_CBC,
+    .authlen = 0,
     .keysize = 192,
     .set_encrypt_key = evp_cipher_set_encrypt_key,
     .set_decrypt_key = evp_cipher_set_decrypt_key,
@@ -841,6 +869,7 @@ static struct ssh_cipher_struct ssh_ciphertab[] = {
     .name = "3des-cbc-ssh1",
     .blocksize = 8,
     .ciphertype = SSH_3DES_CBC_SSH1,
+    .authlen = 0,
     .keysize = 192,
     .set_encrypt_key = des3_set_key,
     .set_decrypt_key = des3_set_key,
@@ -852,6 +881,7 @@ static struct ssh_cipher_struct ssh_ciphertab[] = {
     .name = "des-cbc-ssh1",
     .blocksize = 8,
     .ciphertype = SSH_DES_CBC_SSH1,
+    .authlen = 0,
     .keysize = 64,
     .set_encrypt_key = des1_set_key,
     .set_decrypt_key = des1_set_key,
@@ -872,4 +902,3 @@ struct ssh_cipher_struct *ssh_get_ciphertab(void)
 }
 
 #endif /* LIBCRYPTO */
-

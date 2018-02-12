@@ -54,6 +54,8 @@ static struct ssh_hmac_struct ssh_hmac_tab[] = {
   { "hmac-sha2-384", SSH_HMAC_SHA384 },
   { "hmac-sha2-512", SSH_HMAC_SHA512 },
   { "hmac-md5",      SSH_HMAC_MD5 },
+  { "<implicit>",    SSH_NO_HMAC },
+  { "none",          SSH_NO_HMAC },
   { NULL,            0}
 };
 
@@ -250,6 +252,9 @@ static int crypt_set_algorithms2(ssh_session session){
   /* we must scan the kex entries to find hmac algorithms and set their appropriate structure */
   /* out */
   wanted = session->next_crypto->kex_methods[SSH_MAC_C_S];
+  if (session->next_crypto->out_cipher->ciphertype == SSH_CHACHAPOLY) {
+      wanted = "<implicit>";
+  }
   while (ssh_hmactab[i].name && strcmp(wanted, ssh_hmactab[i].name)) {
     i++;
   }
@@ -288,6 +293,9 @@ static int crypt_set_algorithms2(ssh_session session){
 
   /* we must scan the kex entries to find hmac algorithms and set their appropriate structure */
   wanted = session->next_crypto->kex_methods[SSH_MAC_S_C];
+  if (session->next_crypto->in_cipher->ciphertype == SSH_CHACHAPOLY) {
+      wanted = "<implicit>";
+  }
   while (ssh_hmactab[i].name && strcmp(wanted, ssh_hmactab[i].name)) {
     i++;
   }
@@ -357,7 +365,7 @@ int crypt_set_algorithms(ssh_session session, enum ssh_des_e des_type) {
 
 #ifdef WITH_SERVER
 int crypt_set_algorithms_server(ssh_session session){
-    char *method = NULL;
+    const char *method = NULL;
     int i = 0;
     struct ssh_cipher_struct *ssh_ciphertab=ssh_get_ciphertab();
     struct ssh_hmac_struct   *ssh_hmactab=ssh_get_hmactab();
@@ -407,6 +415,9 @@ int crypt_set_algorithms_server(ssh_session session){
 
     /* HMAC algorithm selection */
     method = session->next_crypto->kex_methods[SSH_MAC_S_C];
+    if (session->next_crypto->out_cipher->ciphertype == SSH_CHACHAPOLY) {
+        method = "<implicit>";
+    }
     while (ssh_hmactab[i].name && strcmp(method, ssh_hmactab[i].name)) {
       i++;
     }
@@ -423,6 +434,9 @@ int crypt_set_algorithms_server(ssh_session session){
     i=0;
 
     method = session->next_crypto->kex_methods[SSH_MAC_C_S];
+    if (session->next_crypto->in_cipher->ciphertype == SSH_CHACHAPOLY) {
+        method = "<implicit>";
+    }
     while (ssh_hmactab[i].name && strcmp(method, ssh_hmactab[i].name)) {
       i++;
     }

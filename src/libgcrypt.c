@@ -322,14 +322,18 @@ static int blowfish_set_key(struct ssh_cipher_struct *cipher, void *key, void *I
   return 0;
 }
 
-static void blowfish_encrypt(struct ssh_cipher_struct *cipher, void *in,
-    void *out, unsigned long len) {
+static int blowfish_encrypt(struct ssh_cipher_struct *cipher, void *in,
+                            void *out, unsigned long len, unsigned int seqnr) {
+  (void)seqnr;
   gcry_cipher_encrypt(cipher->key[0], out, len, in, len);
+  return SSH_CRYPT_OK;
 }
 
-static void blowfish_decrypt(struct ssh_cipher_struct *cipher, void *in,
-    void *out, unsigned long len) {
+static int blowfish_decrypt(struct ssh_cipher_struct *cipher, void *in,
+                            void *out, unsigned long len, unsigned int seqnr) {
+  (void)seqnr;
   gcry_cipher_decrypt(cipher->key[0], out, len, in, len);
+  return SSH_CRYPT_OK;
 }
 
 static int aes_set_key(struct ssh_cipher_struct *cipher, void *key, void *IV) {
@@ -384,14 +388,18 @@ static int aes_set_key(struct ssh_cipher_struct *cipher, void *key, void *IV) {
   return 0;
 }
 
-static void aes_encrypt(struct ssh_cipher_struct *cipher, void *in, void *out,
-    unsigned long len) {
+static int aes_encrypt(struct ssh_cipher_struct *cipher, void *in, void *out,
+                       unsigned long len, unsigned int seqnr) {
+  (void)seqnr;
   gcry_cipher_encrypt(cipher->key[0], out, len, in, len);
+  return SSH_CRYPT_OK;
 }
 
-static void aes_decrypt(struct ssh_cipher_struct *cipher, void *in, void *out,
-    unsigned long len) {
+static int aes_decrypt(struct ssh_cipher_struct *cipher, void *in, void *out,
+                       unsigned long len, unsigned int seqnr) {
+  (void)seqnr;
   gcry_cipher_decrypt(cipher->key[0], out, len, in, len);
+  return SSH_CRYPT_OK;
 }
 
 static int des1_set_key(struct ssh_cipher_struct *cipher, void *key, void *IV){
@@ -440,24 +448,32 @@ static int des3_set_key(struct ssh_cipher_struct *cipher, void *key, void *IV) {
 }
 
 
-static void des1_1_encrypt(struct ssh_cipher_struct *cipher, void *in,
-    void *out, unsigned long len) {
+static int des1_1_encrypt(struct ssh_cipher_struct *cipher, void *in,
+                          void *out, unsigned long len, unsigned int seqnr) {
+  (void)seqnr;
   gcry_cipher_encrypt(cipher->key[0], out, len, in, len);
+  return SSH_CRYPT_OK;
 }
 
-static void des1_1_decrypt(struct ssh_cipher_struct *cipher, void *in,
-    void *out, unsigned long len) {
+static int des1_1_decrypt(struct ssh_cipher_struct *cipher, void *in,
+                          void *out, unsigned long len, unsigned int seqnr) {
+  (void)seqnr;
   gcry_cipher_decrypt(cipher->key[0], out, len, in, len);
+  return SSH_CRYPT_OK;
 }
 
-static void des3_encrypt(struct ssh_cipher_struct *cipher, void *in,
-    void *out, unsigned long len) {
+static int des3_encrypt(struct ssh_cipher_struct *cipher, void *in,
+                        void *out, unsigned long len, unsigned int seqnr) {
+  (void)seqnr;
   gcry_cipher_encrypt(cipher->key[0], out, len, in, len);
+  return SSH_CRYPT_OK;
 }
 
-static void des3_decrypt(struct ssh_cipher_struct *cipher, void *in,
-    void *out, unsigned long len) {
+static int des3_decrypt(struct ssh_cipher_struct *cipher, void *in,
+                        void *out, unsigned long len, unsigned int seqnr) {
+  (void)seqnr;
   gcry_cipher_decrypt(cipher->key[0], out, len, in, len);
+  return SSH_CRYPT_OK;
 }
 
 static int des3_1_set_key(struct ssh_cipher_struct *cipher, void *key, void *IV) {
@@ -511,18 +527,22 @@ static int des3_1_set_key(struct ssh_cipher_struct *cipher, void *key, void *IV)
   return 0;
 }
 
-static void des3_1_encrypt(struct ssh_cipher_struct *cipher, void *in,
-    void *out, unsigned long len) {
+static int des3_1_encrypt(struct ssh_cipher_struct *cipher, void *in,
+                          void *out, unsigned long len, unsigned int seqnr) {
+  (void)seqnr;
   gcry_cipher_encrypt(cipher->key[0], out, len, in, len);
   gcry_cipher_decrypt(cipher->key[1], in, len, out, len);
   gcry_cipher_encrypt(cipher->key[2], out, len, in, len);
+  return SSH_CRYPT_OK;
 }
 
-static void des3_1_decrypt(struct ssh_cipher_struct *cipher, void *in,
-    void *out, unsigned long len) {
+static int des3_1_decrypt(struct ssh_cipher_struct *cipher, void *in,
+                          void *out, unsigned long len, unsigned int seqnr) {
+  (void)seqnr;
   gcry_cipher_decrypt(cipher->key[2], out, len, in, len);
   gcry_cipher_encrypt(cipher->key[1], in, len, out, len);
   gcry_cipher_decrypt(cipher->key[0], out, len, in, len);
+  return SSH_CRYPT_OK;
 }
 
 /* the table of supported ciphers */
@@ -532,6 +552,7 @@ static struct ssh_cipher_struct ssh_ciphertab[] = {
     .blocksize       = 8,
     .keylen          = sizeof(gcry_cipher_hd_t),
     .key             = NULL,
+    .authlen         = 0,
     .keysize         = 128,
     .set_encrypt_key = blowfish_set_key,
     .set_decrypt_key = blowfish_set_key,
@@ -543,6 +564,7 @@ static struct ssh_cipher_struct ssh_ciphertab[] = {
     .blocksize       = 16,
     .keylen          = sizeof(gcry_cipher_hd_t),
     .key             = NULL,
+    .authlen         = 0,
     .keysize         = 128,
     .set_encrypt_key = aes_set_key,
     .set_decrypt_key = aes_set_key,
@@ -554,6 +576,7 @@ static struct ssh_cipher_struct ssh_ciphertab[] = {
       .blocksize       = 16,
       .keylen          = sizeof(gcry_cipher_hd_t),
       .key             = NULL,
+      .authlen         = 0,
       .keysize         = 192,
       .set_encrypt_key = aes_set_key,
       .set_decrypt_key = aes_set_key,
@@ -565,6 +588,7 @@ static struct ssh_cipher_struct ssh_ciphertab[] = {
       .blocksize       = 16,
       .keylen          = sizeof(gcry_cipher_hd_t),
       .key             = NULL,
+      .authlen         = 0,
       .keysize         = 256,
       .set_encrypt_key = aes_set_key,
       .set_decrypt_key = aes_set_key,
@@ -576,6 +600,7 @@ static struct ssh_cipher_struct ssh_ciphertab[] = {
     .blocksize       = 16,
     .keylen          = sizeof(gcry_cipher_hd_t),
     .key             = NULL,
+    .authlen         = 0,
     .keysize         = 128,
     .set_encrypt_key = aes_set_key,
     .set_decrypt_key = aes_set_key,
@@ -587,6 +612,7 @@ static struct ssh_cipher_struct ssh_ciphertab[] = {
     .blocksize       = 16,
     .keylen          = sizeof(gcry_cipher_hd_t),
     .key             = NULL,
+    .authlen         = 0,
     .keysize         = 192,
     .set_encrypt_key = aes_set_key,
     .set_decrypt_key = aes_set_key,
@@ -598,6 +624,7 @@ static struct ssh_cipher_struct ssh_ciphertab[] = {
     .blocksize       = 16,
     .keylen          = sizeof(gcry_cipher_hd_t),
     .key             = NULL,
+    .authlen         = 0,
     .keysize         = 256,
     .set_encrypt_key = aes_set_key,
     .set_decrypt_key = aes_set_key,
@@ -609,6 +636,7 @@ static struct ssh_cipher_struct ssh_ciphertab[] = {
     .blocksize       = 8,
     .keylen          = sizeof(gcry_cipher_hd_t),
     .key             = NULL,
+    .authlen         = 0,
     .keysize         = 192,
     .set_encrypt_key = des3_set_key,
     .set_decrypt_key = des3_set_key,
@@ -620,6 +648,7 @@ static struct ssh_cipher_struct ssh_ciphertab[] = {
     .blocksize       = 8,
     .keylen          = sizeof(gcry_cipher_hd_t) * 3,
     .key             = NULL,
+    .authlen         = 0,
     .keysize         = 192,
     .set_encrypt_key = des3_1_set_key,
     .set_decrypt_key = des3_1_set_key,
@@ -631,6 +660,7 @@ static struct ssh_cipher_struct ssh_ciphertab[] = {
     .blocksize       = 8,
     .keylen          = sizeof(gcry_cipher_hd_t),
     .key             = NULL,
+    .authlen         = 0,
     .keysize         = 64,
     .set_encrypt_key = des1_set_key,
     .set_decrypt_key = des1_set_key,
@@ -642,6 +672,7 @@ static struct ssh_cipher_struct ssh_ciphertab[] = {
     .blocksize       = 0,
     .keylen          = 0,
     .key             = NULL,
+    .authlen         = 0,
     .keysize         = 0,
     .set_encrypt_key = NULL,
     .set_decrypt_key = NULL,
