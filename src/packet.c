@@ -144,6 +144,11 @@ int ssh_packet_socket_callback(const void *data, size_t receivedlen, void *user)
     ssh_session session= (ssh_session) user;
     unsigned int blocksize = (session->current_crypto ?
                               session->current_crypto->in_cipher->blocksize : 8);
+    unsigned int authlen = (session->current_crypto ?
+                            session->current_crypto->in_cipher->authlen : 0);
+    unsigned int aadlen = authlen ? 4 : 0;
+    /* needlen is the number of bytes needed to read length */
+    unsigned int needlen = aadlen ? aadlen : blocksize;
     unsigned char mac[DIGEST_MAX_LEN] = {0};
     char buffer[16] = {0};
     size_t current_macsize = 0;
@@ -155,7 +160,8 @@ int ssh_packet_socket_callback(const void *data, size_t receivedlen, void *user)
     size_t processed = 0; /* number of byte processed from the callback */
 
     if(session->current_crypto != NULL) {
-      current_macsize = hmac_digest_len(session->current_crypto->in_hmac);
+        current_macsize = (authlen ? 0 :
+                           hmac_digest_len(session->current_crypto->in_hmac));
     }
 
     if (data == NULL) {
@@ -168,7 +174,7 @@ int ssh_packet_socket_callback(const void *data, size_t receivedlen, void *user)
 
     switch(session->packet_state) {
         case PACKET_STATE_INIT:
-            if (receivedlen < blocksize) {
+            if (receivedlen < needlen) {
                 /*
                  * We didn't receive enough data to read at least one
                  * block size, give up
@@ -190,11 +196,12 @@ int ssh_packet_socket_callback(const void *data, size_t receivedlen, void *user)
                 }
             }
 
-            memcpy(buffer, data, blocksize);
-            processed += blocksize;
+            memcpy(buffer, data, needlen);
+            processed += needlen;
             len = ssh_packet_decrypt_len(session, buffer);
 
-            rc = ssh_buffer_add_data(session->in_buffer, buffer, blocksize);
+            /* buffer (packet_len) is still encrypted for chachapoly */
+            rc = ssh_buffer_add_data(session->in_buffer, buffer, needlen);
             if (rc < 0) {
                 goto error;
             }
@@ -207,7 +214,7 @@ int ssh_packet_socket_callback(const void *data, size_t receivedlen, void *user)
                 goto error;
             }
 
-            to_be_read = len - blocksize + sizeof(uint32_t);
+            to_be_read = len - needlen + sizeof(uint32_t);
             if (to_be_read < 0) {
                 /* remote sshd sends invalid sizes? */
                 ssh_set_error(session,
@@ -223,8 +230,8 @@ int ssh_packet_socket_callback(const void *data, size_t receivedlen, void *user)
             FALL_THROUGH;
         case PACKET_STATE_SIZEREAD:
             len = session->in_packet.len;
-            to_be_read = len - blocksize + sizeof(uint32_t) + current_macsize;
-            /* if to_be_read is zero, the whole packet was blocksize bytes. */
+            to_be_read = len - needlen + sizeof(uint32_t) + current_macsize + authlen;
+            /* if to_be_read is zero, the whole packet was needlen bytes. */
             if (to_be_read != 0) {
                 if (receivedlen - processed < (unsigned int)to_be_read) {
                     /* give up, not enough data in buffer */
@@ -238,10 +245,10 @@ int ssh_packet_socket_callback(const void *data, size_t receivedlen, void *user)
                                 packet,
                                 to_be_read - current_macsize);
 #endif
-
+                /* add mac for Authenticated Encryption Mode (AEM) */
                 rc = ssh_buffer_add_data(session->in_buffer,
-                                     packet,
-                                     to_be_read - current_macsize);
+                                         packet,
+                                         to_be_read - current_macsize);
                 if (rc < 0) {
                     goto error;
                 }
@@ -254,11 +261,12 @@ int ssh_packet_socket_callback(const void *data, size_t receivedlen, void *user)
                  * have been decrypted)
                  */
                 uint32_t buffer_len = ssh_buffer_get_len(session->in_buffer);
+                uint32_t offset = aadlen ? 0 : blocksize;
 
                 /* The following check avoids decrypting zero bytes */
-                if (buffer_len > blocksize) {
-                    uint8_t *payload = ((uint8_t*)ssh_buffer_get(session->in_buffer) + blocksize);
-                    uint32_t plen = buffer_len - blocksize;
+                if (buffer_len > offset) {
+                    uint8_t *payload = ((uint8_t*)ssh_buffer_get(session->in_buffer) + offset);
+                    uint32_t plen = buffer_len - offset - authlen;
 
                     rc = ssh_packet_decrypt(session, payload, plen);
                     if (rc < 0) {
@@ -266,17 +274,20 @@ int ssh_packet_socket_callback(const void *data, size_t receivedlen, void *user)
                         goto error;
                     }
                 }
+                /* mac already verified in decryption for AEM */
+                if (authlen == 0) {
+                    /* copy the last part from the incoming buffer */
+                    packet = ((uint8_t *)data) + processed;
+                    memcpy(mac, packet, current_macsize);
 
-                /* copy the last part from the incoming buffer */
-                packet = ((uint8_t *)data) + processed;
-                memcpy(mac, packet, current_macsize);
-
-                rc = ssh_packet_hmac_verify(session, session->in_buffer, mac, session->current_crypto->in_hmac);
-                if (rc < 0) {
-                    ssh_set_error(session, SSH_FATAL, "HMAC error");
-                    goto error;
+                    rc = ssh_packet_hmac_verify(session, session->in_buffer, mac,
+                                                session->current_crypto->in_hmac);
+                    if (rc < 0) {
+                        ssh_set_error(session, SSH_FATAL, "HMAC error");
+                        goto error;
+                    }
+                    processed += current_macsize;
                 }
-                processed += current_macsize;
             }
 
             /* skip the size field which has been processed before */
@@ -288,6 +299,11 @@ int ssh_packet_socket_callback(const void *data, size_t receivedlen, void *user)
                               SSH_FATAL,
                               "Packet too short to read padding");
                 goto error;
+            }
+
+            if (authlen != 0) {
+                /* skip the mac at the end for AEM */
+                ssh_buffer_pass_bytes_end(session->in_buffer, authlen);
             }
 
             if (padding > ssh_buffer_get_len(session->in_buffer)) {
@@ -545,8 +561,12 @@ static int packet_send2(ssh_session session) {
   unsigned char *hmac = NULL;
   char padstring[32] = { 0 };
   int rc = SSH_ERROR;
-  uint32_t finallen,payloadsize,compsize;
+  uint32_t finallen,payloadsize,compsize,headsize;
   uint8_t padding;
+  unsigned int authlen = (session->current_crypto ?
+                          session->current_crypto->out_cipher->authlen : 0);
+  unsigned int aadlen = authlen ? 4 : 0;
+  unsigned int hmac_len = (authlen ? authlen : hmac_digest_len(hmac_type));
 
   uint8_t header[sizeof(padding) + sizeof(finallen)] = { 0 };
 
@@ -562,7 +582,12 @@ static int packet_send2(ssh_session session) {
   }
 #endif /* WITH_ZLIB */
   compsize = currentlen;
-  padding = (blocksize - ((currentlen +5) % blocksize));
+
+  /* size of packet_len (4 bytes) and padding_len (1 byte)  */
+  /* packet_len not encrypted for EtM or AEM  */
+  headsize = 5 - aadlen;
+
+  padding = (blocksize - ((currentlen + headsize) % blocksize));
   if(padding < 4) {
     padding += blocksize;
   }
@@ -593,7 +618,7 @@ static int packet_send2(ssh_session session) {
   hmac = ssh_packet_encrypt(session, ssh_buffer_get(session->out_buffer),
       ssh_buffer_get_len(session->out_buffer));
   if (hmac) {
-    rc = ssh_buffer_add_data(session->out_buffer, hmac, hmac_digest_len(hmac_type));
+    rc = ssh_buffer_add_data(session->out_buffer, hmac, hmac_len);
     if (rc < 0) {
       goto error;
     }
