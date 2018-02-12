@@ -60,6 +60,10 @@
 
 #include "libssh/crypto.h"
 
+#ifdef WITH_CHACHAPOLY
+#include "libssh/chachapoly.h"
+#endif
+
 struct ssh_mac_ctx_struct {
   enum ssh_mac_e mac_type;
   union {
@@ -718,6 +722,60 @@ static void des_cleanup(struct ssh_cipher_struct *cipher){
 
 #endif /* HAS_DES */
 
+#ifdef WITH_CHACHAPOLY
+static int alloc_chachapoly(struct ssh_cipher_struct *cipher) {
+    cipher->chachapoly = malloc(sizeof(struct chachapoly_ctx));
+    if (cipher->chachapoly == NULL) {
+      return -1;
+    }
+
+    return 0;
+}
+
+static int chachapoly_set_key(struct ssh_cipher_struct *cipher, void *key,
+                              void *IV) {
+    (void)IV;
+    if (cipher->chachapoly == NULL) {
+        if (alloc_chachapoly(cipher) < 0) {
+            return -1;
+        }
+        if (chachapoly_init(cipher->chachapoly,key,cipher->keysize / 8) < 0) {
+            return -1;
+        }
+    }
+    return 0;
+}
+
+static int chachapoly_encrypt(struct ssh_cipher_struct *cipher, void *in, void *out,
+    unsigned long len, unsigned int seqnr) {
+    int res;
+    res = chachapoly_crypt(cipher->chachapoly, seqnr, out, in, len - 4, 4,
+                           cipher->authlen, 1);
+    return res;
+}
+
+static int chachapoly_decrypt(struct ssh_cipher_struct *cipher, void *in, void *out,
+    unsigned long len, unsigned int seqnr) {
+    int res;
+    res = chachapoly_crypt(cipher->chachapoly, seqnr, out, in, len - 4, 4,
+                           cipher->authlen, 0);
+    return res;
+}
+
+static void chachapoly_cleanup(struct ssh_cipher_struct *cipher) {
+    if (cipher->chachapoly != NULL) {
+        BURN_BUFFER(cipher->chachapoly, sizeof(struct chachapoly_ctx));
+        SAFE_FREE(cipher->chachapoly);
+    }
+}
+uint32_t chachapoly_getlength(struct ssh_cipher_struct *cipher, const void* in,
+                              unsigned long len, unsigned int seqnr) {
+    uint32_t plenp = 0;
+    chachapoly_get_length(cipher->chachapoly, &plenp, seqnr, in, len);
+    return plenp;
+}
+#endif /* WITH_CHACHAPOLY */
+
 /*
  * The table of supported ciphers
  */
@@ -890,6 +948,20 @@ static struct ssh_cipher_struct ssh_ciphertab[] = {
     .cleanup = des_cleanup
   },
 #endif /* HAS_DES */
+#ifdef WITH_CHACHAPOLY
+  {
+      .name = "chacha20-poly1305@openssh.com",
+      .blocksize = 8,
+      .ciphertype = SSH_CHACHAPOLY,
+      .authlen = 16,
+      .keysize = 512,
+      .set_encrypt_key = chachapoly_set_key,
+      .set_decrypt_key = chachapoly_set_key,
+      .encrypt = chachapoly_encrypt,
+      .decrypt = chachapoly_decrypt,
+      .cleanup = chachapoly_cleanup
+  },
+#endif
   {
     .name = NULL
   }

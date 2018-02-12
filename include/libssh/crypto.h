@@ -32,6 +32,10 @@
 #endif
 #include "libssh/wrapper.h"
 
+#ifdef WITH_CHACHAPOLY
+#include "libssh/chachapoly.h"
+#endif
+
 #ifdef cbc_encrypt
 #undef cbc_encrypt
 #endif
@@ -150,6 +154,9 @@ struct ssh_cipher_struct {
     mbedtls_cipher_type_t type;
 #endif
     unsigned int authlen; /* length of mac for authenticated ciphers */
+#ifdef WITH_CHACHAPOLY
+    struct chachapoly_ctx *chachapoly;
+#endif
     unsigned int keysize; /* bytes of key used. != keylen */
     /* sets the new key for immediate use */
     int (*set_encrypt_key)(struct ssh_cipher_struct *cipher, void *key, void *IV);

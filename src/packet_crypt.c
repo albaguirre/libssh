@@ -48,6 +48,19 @@ uint32_t ssh_packet_decrypt_len(ssh_session session, char *crypted){
   uint32_t decrypted;
 
   if (session->current_crypto) {
+#ifdef WITH_CHACHAPOLY
+      if (session->current_crypto->in_cipher->ciphertype == SSH_CHACHAPOLY) {
+          if (session->current_crypto->in_cipher->set_decrypt_key(
+                  session->current_crypto->in_cipher,
+                  session->current_crypto->decryptkey,
+                  session->current_crypto->decryptIV) < 0) {
+              return 0;
+          }
+          decrypted = chachapoly_getlength(session->current_crypto->in_cipher, crypted,
+                                           4, session->recv_seq);
+          return decrypted;
+      }
+#endif
     if (ssh_packet_decrypt(session, crypted,
           session->current_crypto->in_cipher->blocksize) < 0) {
       return 0;
