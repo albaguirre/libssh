@@ -57,14 +57,23 @@ uint32_t ssh_packet_decrypt_len(ssh_session session, char *crypted){
   return ntohl(decrypted);
 }
 
+/*
+ * 'data' contains:
+ * - aadlen packet len part (EtM or AEM)
+ * - payload to decrypt ((len - aadlen) size)
+ * - authlen mac for AEM
+ */
 int ssh_packet_decrypt(ssh_session session, void *data,uint32_t len) {
   struct ssh_cipher_struct *crypto = session->current_crypto->in_cipher;
   char *out = NULL;
+  /* TODO: aadlen and authlen should be passed in parameters */
+  unsigned int aadlen;
   int res = 0;
 
   assert(len);
+  aadlen = crypto->authlen ? 4 : 0;
 
-  if(len % session->current_crypto->in_cipher->blocksize != 0){
+  if(len % crypto->blocksize != aadlen){
     ssh_set_error(session, SSH_FATAL, "Cryptographic functions must be set on at least one blocksize (received %d)",len);
     return SSH_ERROR;
   }
@@ -89,11 +98,17 @@ int ssh_packet_decrypt(ssh_session session, void *data,uint32_t len) {
   return 0;
 }
 
+/*
+ * 'data' can contains:
+ * - packet_len part (for EtM or AEM of aadlen size)
+ * - payload to encrypt ((len - aadlen) size)
+ */
 unsigned char *ssh_packet_encrypt(ssh_session session, void *data, uint32_t len) {
   struct ssh_cipher_struct *crypto = NULL;
   HMACCTX ctx = NULL;
-  char *out = NULL;
-  unsigned int finallen;
+  unsigned char *out = NULL;
+  /* TODO: aadlen and authlen should be passed in parameters */
+  unsigned int finallen, aadlen, authlen;
   uint32_t seq;
   enum ssh_hmac_e type;
   int res = 0;
@@ -103,20 +118,23 @@ unsigned char *ssh_packet_encrypt(ssh_session session, void *data, uint32_t len)
   if (!session->current_crypto) {
     return NULL; /* nothing to do here */
   }
-  if(len % session->current_crypto->in_cipher->blocksize != 0){
+  crypto = session->current_crypto->out_cipher;
+  authlen = crypto->authlen;
+  aadlen = authlen ? 4 : 0;
+
+  if(len % crypto->blocksize != aadlen){
       ssh_set_error(session, SSH_FATAL, "Cryptographic functions must be set on at least one blocksize (received %d)",len);
       return NULL;
   }
-  out = malloc(len);
+  out = malloc(len + authlen);
   if (out == NULL) {
     return NULL;
   }
 
   type = session->current_crypto->out_hmac;
   seq = ntohl(session->send_seq);
-  crypto = session->current_crypto->out_cipher;
 
-  if (session->version == 2) {
+  if (session->version == 2 && authlen == 0) {
     ctx = hmac_init(session->current_crypto->encryptMAC, hmac_digest_len(type), type);
     if (ctx == NULL) {
       SAFE_FREE(out);
@@ -142,7 +160,10 @@ unsigned char *ssh_packet_encrypt(ssh_session session, void *data, uint32_t len)
   }
 
   memcpy(data, out, len);
-  explicit_bzero(out, len);
+  if (session->version == 2 && authlen) {
+      memcpy(session->current_crypto->hmacbuf, out + len, authlen);
+  }
+  explicit_bzero(out, len + authlen);
   SAFE_FREE(out);
 
   if (session->version == 2) {
