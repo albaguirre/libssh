@@ -71,6 +71,12 @@
 # define DES_SUPPORTED "3des-cbc,des-cbc-ssh1"
 #endif /* HAVE_LIBCRYPTO */
 
+#ifdef WITH_CHACHAPOLY
+#define CHACHAPOLY "chacha20-poly1305@openssh.com,"
+#else
+#define CHACHAPOLY ""
+#endif
+
 #ifdef WITH_ZLIB
 #define ZLIB "none,zlib,zlib@openssh.com"
 #else
@@ -102,8 +108,8 @@
 static const char *default_methods[] = {
   KEY_EXCHANGE,
   HOSTKEYS,
-  AES BLOWFISH DES,
-  AES BLOWFISH DES,
+  AES CHACHAPOLY BLOWFISH DES,
+  AES CHACHAPOLY BLOWFISH DES,
   "hmac-sha2-256,hmac-sha2-512,hmac-sha1",
   "hmac-sha2-256,hmac-sha2-512,hmac-sha1",
   "none",
@@ -117,8 +123,8 @@ static const char *default_methods[] = {
 static const char *supported_methods[] = {
   KEY_EXCHANGE,
   HOSTKEYS,
-  AES BLOWFISH DES_SUPPORTED,
-  AES BLOWFISH DES_SUPPORTED,
+  AES CHACHAPOLY BLOWFISH DES_SUPPORTED,
+  AES CHACHAPOLY BLOWFISH DES_SUPPORTED,
   "hmac-sha2-256,hmac-sha2-512,hmac-sha1",
   "hmac-sha2-256,hmac-sha2-512,hmac-sha1",
   ZLIB,
