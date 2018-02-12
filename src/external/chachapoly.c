@@ -23,6 +23,7 @@
 #include <string.h>
 #include <stdio.h>  /* needed for misc.h */
 
+#include "config.h"
 #include "libssh/pki_priv.h"
 #include "libssh/chachapoly.h"
 #include "libssh/buffer.h"
