@@ -87,4 +87,51 @@ ssh_string ssh_buffer_get_mpint(ssh_buffer buffer);
 uint32_t ssh_buffer_pass_bytes_end(ssh_buffer buffer, uint32_t len);
 uint32_t ssh_buffer_pass_bytes(ssh_buffer buffer, uint32_t len);
 
+
+/* Macros for decoding/encoding integers */
+#define PEEK_U64(p)                                     \
+    (((u_int64_t)(((const u_char *)(p))[0]) << 56) |    \
+     ((u_int64_t)(((const u_char *)(p))[1]) << 48) |    \
+     ((u_int64_t)(((const u_char *)(p))[2]) << 40) |    \
+     ((u_int64_t)(((const u_char *)(p))[3]) << 32) |    \
+     ((u_int64_t)(((const u_char *)(p))[4]) << 24) |    \
+     ((u_int64_t)(((const u_char *)(p))[5]) << 16) |    \
+     ((u_int64_t)(((const u_char *)(p))[6]) << 8) |     \
+     (u_int64_t)(((const u_char *)(p))[7]))
+#define PEEK_U32(p)                                     \
+    (((u_int32_t)(((const u_char *)(p))[0]) << 24) |    \
+     ((u_int32_t)(((const u_char *)(p))[1]) << 16) |    \
+     ((u_int32_t)(((const u_char *)(p))[2]) << 8) |     \
+     (u_int32_t)(((const u_char *)(p))[3]))
+#define PEEK_U16(p)                                     \
+    (((u_int16_t)(((const u_char *)(p))[0]) << 8) |     \
+     (u_int16_t)(((const u_char *)(p))[1]))
+
+#define POKE_U64(p, v)                                  \
+    do {                                                \
+        const u_int64_t __v = (v);                      \
+        ((u_char *)(p))[0] = (__v >> 56) & 0xff;        \
+        ((u_char *)(p))[1] = (__v >> 48) & 0xff;        \
+        ((u_char *)(p))[2] = (__v >> 40) & 0xff;        \
+        ((u_char *)(p))[3] = (__v >> 32) & 0xff;        \
+        ((u_char *)(p))[4] = (__v >> 24) & 0xff;        \
+        ((u_char *)(p))[5] = (__v >> 16) & 0xff;        \
+        ((u_char *)(p))[6] = (__v >> 8) & 0xff;         \
+        ((u_char *)(p))[7] = __v & 0xff;                \
+    } while (0)
+#define POKE_U32(p, v)                                  \
+    do {                                                \
+        const u_int32_t __v = (v);                      \
+        ((u_char *)(p))[0] = (__v >> 24) & 0xff;        \
+        ((u_char *)(p))[1] = (__v >> 16) & 0xff;        \
+        ((u_char *)(p))[2] = (__v >> 8) & 0xff;         \
+        ((u_char *)(p))[3] = __v & 0xff;                \
+   } while (0)
+#define POKE_U16(p, v)                          \
+    do {                                        \
+        const u_int16_t __v = (v);              \
+        ((u_char *)(p))[0] = (__v >> 8) & 0xff; \
+        ((u_char *)(p))[1] = __v & 0xff;        \
+   } while (0)
+
 #endif /* BUFFER_H_ */

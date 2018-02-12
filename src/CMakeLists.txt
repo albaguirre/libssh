@@ -163,6 +163,15 @@ set(libssh_SRCS
   external/sc25519.c
 )
 
+if (WITH_CHACHAPOLY)
+  set(libssh_SRCS
+    ${libssh_SRCS}
+    external/chacha.c
+    external/poly1305.c
+    external/chachapoly.c
+    )
+endif (WITH_CHACHAPOLY)
+
 if (WITH_GCRYPT)
     set(libssh_SRCS
         ${libssh_SRCS}

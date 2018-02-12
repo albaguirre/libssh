@@ -214,6 +214,9 @@
 /* Define to 1 if you want to enable NaCl support */
 #cmakedefine WITH_NACL 1
 
+/* Define to 1 if you want to enable chachapoly support */
+#cmakedefine WITH_CHACHAPOLY 1
+
 /*************************** ENDIAN *****************************/
 
 /* Define WORDS_BIGENDIAN to 1 if your processor stores words with the most
