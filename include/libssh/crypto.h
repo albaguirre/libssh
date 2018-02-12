@@ -48,6 +48,12 @@
 
 #define DIGEST_MAX_LEN 64
 
+#define SSH_CRYPT_OK 0
+#define SSH_CRYPT_INVALID_ARGUMENT -1
+#define SSH_CRYPT_INTERNAL_ERROR -2
+#define SSH_CRYPT_MAC_INVALID -3
+#define SSH_CRYPT_MESSAGE_INCOMPLETE -4
+
 enum ssh_key_exchange_e {
   /* diffie-hellman-group1-sha1 */
   SSH_KEX_DH_GROUP1_SHA1=1,
@@ -74,7 +80,8 @@ enum ssh_cipher_e {
     SSH_AES256_CBC,
     SSH_AES128_CTR,
     SSH_AES192_CTR,
-    SSH_AES256_CTR
+    SSH_AES256_CTR,
+    SSH_CHACHAPOLY
 };
 
 struct ssh_crypto_struct {
@@ -142,14 +149,15 @@ struct ssh_cipher_struct {
     mbedtls_cipher_context_t decrypt_ctx;
     mbedtls_cipher_type_t type;
 #endif
+    unsigned int authlen; /* length of mac for authenticated ciphers */
     unsigned int keysize; /* bytes of key used. != keylen */
     /* sets the new key for immediate use */
     int (*set_encrypt_key)(struct ssh_cipher_struct *cipher, void *key, void *IV);
     int (*set_decrypt_key)(struct ssh_cipher_struct *cipher, void *key, void *IV);
-    void (*encrypt)(struct ssh_cipher_struct *cipher, void *in, void *out,
-        unsigned long len);
-    void (*decrypt)(struct ssh_cipher_struct *cipher, void *in, void *out,
-        unsigned long len);
+    int (*encrypt)(struct ssh_cipher_struct *cipher, void *in, void *out,
+        unsigned long len, unsigned int seqnr);
+    int (*decrypt)(struct ssh_cipher_struct *cipher, void *in, void *out,
+        unsigned long len, unsigned int seqnr);
     void (*cleanup)(struct ssh_cipher_struct *cipher);
 };
 

@@ -60,6 +60,7 @@ uint32_t ssh_packet_decrypt_len(ssh_session session, char *crypted){
 int ssh_packet_decrypt(ssh_session session, void *data,uint32_t len) {
   struct ssh_cipher_struct *crypto = session->current_crypto->in_cipher;
   char *out = NULL;
+  int res = 0;
 
   assert(len);
 
@@ -72,7 +73,15 @@ int ssh_packet_decrypt(ssh_session session, void *data,uint32_t len) {
     return -1;
   }
 
-  crypto->decrypt(crypto,data,out,len);
+  res = crypto->decrypt(crypto,data,out,len,session->recv_seq);
+  if (res != SSH_CRYPT_OK) {
+      ssh_set_error(session, SSH_FATAL, "Decrypt function failed");
+      if (res == SSH_CRYPT_MAC_INVALID) {
+          ssh_set_error(session, SSH_FATAL, "Invalid MAC");
+      }
+      SAFE_FREE(out);
+      return -1;
+  }
 
   memcpy(data,out,len);
   explicit_bzero(out, len);
@@ -87,6 +96,7 @@ unsigned char *ssh_packet_encrypt(ssh_session session, void *data, uint32_t len)
   unsigned int finallen;
   uint32_t seq;
   enum ssh_hmac_e type;
+  int res = 0;
 
   assert(len);
 
@@ -124,7 +134,12 @@ unsigned char *ssh_packet_encrypt(ssh_session session, void *data, uint32_t len)
 #endif
   }
 
-  crypto->encrypt(crypto, data, out, len);
+  res = crypto->encrypt(crypto, data, out, len, session->send_seq);
+  if (res != 0) {
+      ssh_set_error(session, SSH_FATAL, "Encrypt function failed");
+      SAFE_FREE(out);
+      return NULL;
+  }
 
   memcpy(data, out, len);
   explicit_bzero(out, len);

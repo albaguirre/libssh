@@ -71,8 +71,8 @@ static void torture_crypto_aes256_cbc(void **state)
     cipher.encrypt(&cipher,
             cleartext,
             output,
-            sizeof(cleartext)
-            );
+            sizeof(cleartext),
+            0);
 
     assert_memory_equal(output, aes256_cbc_encrypted, sizeof(aes256_cbc_encrypted));
     ssh_cipher_clear(&cipher);
@@ -90,8 +90,8 @@ static void torture_crypto_aes256_cbc(void **state)
     cipher.decrypt(&cipher,
             aes256_cbc_encrypted,
             output,
-            sizeof(aes256_cbc_encrypted)
-            );
+            sizeof(aes256_cbc_encrypted),
+            0);
 
     assert_memory_equal(output, cleartext, sizeof(cleartext));
 

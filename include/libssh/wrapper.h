@@ -35,6 +35,7 @@ enum ssh_mac_e {
 };
 
 enum ssh_hmac_e {
+  SSH_NO_HMAC = 0,
   SSH_HMAC_SHA1 = 1,
   SSH_HMAC_SHA256,
   SSH_HMAC_SHA384,
