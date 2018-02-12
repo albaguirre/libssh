@@ -764,7 +764,7 @@ static int chachapoly_decrypt(struct ssh_cipher_struct *cipher, void *in, void *
 
 static void chachapoly_cleanup(struct ssh_cipher_struct *cipher) {
     if (cipher->chachapoly != NULL) {
-        BURN_BUFFER(cipher->chachapoly, sizeof(struct chachapoly_ctx));
+        explicit_bzero(cipher->chachapoly, sizeof(struct chachapoly_ctx));
         SAFE_FREE(cipher->chachapoly);
     }
 }

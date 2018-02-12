@@ -112,9 +112,9 @@ chachapoly_crypt(struct chachapoly_ctx *ctx, u_int seqnr, u_char *dest,
     }
     r = 0;
  out:
-    BURN_BUFFER(expected_tag, sizeof(expected_tag));
-    BURN_BUFFER(seqbuf, sizeof(seqbuf));
-    BURN_BUFFER(poly_key, sizeof(poly_key));
+    explicit_bzero(expected_tag, sizeof(expected_tag));
+    explicit_bzero(seqbuf, sizeof(seqbuf));
+    explicit_bzero(poly_key, sizeof(poly_key));
     return r;
 }
 
