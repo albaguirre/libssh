@@ -29,13 +29,13 @@ struct chachapoly_ctx {
 };
 
 int    chachapoly_init(struct chachapoly_ctx *cpctx,
-                        const u_char *key, u_int keylen);
+                        const unsigned char *key, unsigned int keylen);
 /* __attribute__((__bounded__(__buffer__, 2, 3))); */
-int    chachapoly_crypt(struct chachapoly_ctx *cpctx, u_int seqnr,
-                         u_char *dest, const u_char *src, u_int len, u_int aadlen, u_int authlen,
+int    chachapoly_crypt(struct chachapoly_ctx *cpctx, unsigned int seqnr,
+                         unsigned char *dest, const unsigned char *src, unsigned int len, unsigned int aadlen, unsigned int authlen,
                          int do_encrypt);
 int    chachapoly_get_length(struct chachapoly_ctx *cpctx,
-                              u_int *plenp, u_int seqnr, const u_char *cp, u_int len);
+                              unsigned int *plenp, unsigned int seqnr, const unsigned char *cp, unsigned int len);
 /* __attribute__((__bounded__(__buffer__, 4, 5))); */
 
 #endif /* CHACHA_POLY_AEAD_H */
