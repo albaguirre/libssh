@@ -202,6 +202,30 @@ sftp_client_message sftp_get_client_message(sftp_session sftp) {
         return NULL;
       }
       break;
+    case SSH_FXP_EXTENDED:
+      rc = ssh_buffer_unpack(payload,
+                             "s",
+                             &msg->submessage);
+      if (rc != SSH_OK) {
+        ssh_set_error_oom(session);
+        sftp_client_message_free(msg);
+        return NULL;
+      }
+
+      if (strcmp(msg->submessage, "hardlink@openssh.com") == 0 ||
+          strcmp(msg->submessage, "posix-rename@openssh.com") == 0)
+      {
+        rc = ssh_buffer_unpack(payload,
+                               "sS",
+                               &msg->filename,
+                               &msg->data);
+        if (rc != SSH_OK) {
+          ssh_set_error_oom(session);
+          sftp_client_message_free(msg);
+          return NULL;
+        }
+      }
+      break;
     default:
       ssh_set_error(sftp->session, SSH_FATAL,
                     "Received unhandled sftp message %d", msg->type);
@@ -240,6 +264,10 @@ const char *sftp_client_message_get_data(sftp_client_message msg){
 
 uint32_t sftp_client_message_get_flags(sftp_client_message msg){
 	return msg->flags;
+}
+
+const char *sftp_client_message_get_submessage(sftp_client_message msg){
+        return msg->submessage;
 }
 
 void sftp_client_message_free(sftp_client_message msg) {
