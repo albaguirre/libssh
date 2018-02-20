@@ -219,7 +219,12 @@ int sftp_server_init(sftp_session sftp){
     return -1;
   }
 
-  if (ssh_buffer_add_u32(reply, ntohl(LIBSFTP_VERSION)) < 0) {
+  if (ssh_buffer_pack(reply, "dssss",
+                      ntohl(LIBSFTP_VERSION),
+                      "posix-rename@openssh.com",
+                      "1",
+                      "hardlink@openssh.com",
+                      "1") < 0) {
     ssh_set_error_oom(session);
     ssh_buffer_free(reply);
     return -1;
