@@ -276,6 +276,7 @@ void sftp_client_message_free(sftp_client_message msg) {
   }
 
   SAFE_FREE(msg->filename);
+  SAFE_FREE(msg->submessage);
   ssh_string_free(msg->data);
   ssh_string_free(msg->handle);
   sftp_attributes_free(msg->attr);
